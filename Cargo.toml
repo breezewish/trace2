@@ -1,0 +1,19 @@
+[package]
+name = "trace2"
+version = "0.1.0"
+authors = ["Breezewish <me@breeswish.org>"]
+repository = "https://github.com/breeswish/trace2"
+license = "MIT"
+description = "A proc macro for tracing the execution of functions via log, similar to trace crate, but thread safe"
+
+[workspace]
+members = [
+  "trace2_macro",
+]
+
+[dependencies]
+trace2_macro = { path = "./trace2_macro", version = "0.1" }
+
+[dev-dependencies]
+log = "0.4"
+env_logger = "0.5"
