@@ -58,6 +58,11 @@ TRACE 2018-09-06T17:06:54Z: <<<<<<<< basic::bar = 2
 TRACE 2018-09-06T17:06:54Z: <<<< basic::foo = ()
 ```
 
+## TODO
+
+- Handle nested annotations
+- Support pausing
+
 ## License
 
 MIT
