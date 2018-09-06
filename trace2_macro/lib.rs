@@ -8,14 +8,13 @@ extern crate quote;
 
 use proc_macro::TokenStream;
 
+use syn::spanned::Spanned;
 use syn::fold::Fold;
 use quote::ToTokens;
 
 #[proc_macro_attribute]
 pub fn trace2(_args: TokenStream, input: TokenStream) -> TokenStream {
-    let folded = fold(input).into();
-    println!("{}", folded);
-    folded
+    fold(input).into()
 }
 
 fn fold(input: TokenStream) -> proc_macro2::TokenStream {
@@ -163,9 +162,10 @@ fn build_block(decl: &syn::FnDecl, ident: &syn::Ident, block: &syn::Block) -> pr
     // }
     // ```
 
+    let span = block.span();
     let begin_trace = build_begin_trace_statement(decl, ident);
     let end_trace = build_end_trace_statement(ident);
-    quote! {
+    quote_spanned! {span=>
         {
             use trace2;
             trace2::FUNC_CALL_LEVEL.with(|level| {

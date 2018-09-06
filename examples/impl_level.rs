@@ -25,7 +25,9 @@ impl Foo {
 }
 
 fn main() {
-    env_logger::init();
+    env_logger::Builder::from_default_env()
+        .default_format_module_path(false)
+        .init();
 
     let foo = Foo;
     Foo::foo(2);
