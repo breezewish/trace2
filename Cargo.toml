@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Breezewish <me@breeswish.org>"]
 repository = "https://github.com/breeswish/trace2"
 license = "MIT"
-description = "A proc macro for tracing the execution of functions via log, similar to trace crate, but thread safe"
+description = "A proc macro for tracing the execution of functions, similar to trace crate, but thread safe and use log"
 
 [workspace]
 members = [
