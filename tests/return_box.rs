@@ -28,8 +28,9 @@ fn new_animal(kind: &'static str) -> Box<Animal> {
 }
 
 #[test]
-fn test_explicit_return_type() {
+fn test_return_box() {
     env_logger::Builder::from_default_env()
+        .default_format_timestamp(false)
         .default_format_module_path(false)
         .init();
 

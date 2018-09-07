@@ -16,6 +16,7 @@ fn foo(a: i32) -> i32 {
 #[test]
 fn test_unreachable() {
     env_logger::Builder::from_default_env()
+        .default_format_timestamp(false)
         .default_format_module_path(false)
         .init();
 

@@ -1,10 +1,10 @@
 all: format build examples test
 
 build:
-	cargo build
+	cargo build --all --all-targets
 
 test:
-	cargo test -- --nocapture
+    RUST_BACKTRACE=1 cargo test --all -- --nocapture
 
 format:
 	@cargo fmt --all -- --check >/dev/null || \

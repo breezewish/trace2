@@ -11,7 +11,7 @@ struct Func {
 }
 
 impl Func {
-    fn dummy(&self, foo: Vec<u8>) {
+    fn dummy(&self, _foo: Vec<u8>) {
         // nothing
     }
 }
@@ -77,6 +77,7 @@ dispatch_call! {
 #[test]
 fn test_inside_macro() {
     env_logger::Builder::from_default_env()
+        .default_format_timestamp(false)
         .default_format_module_path(false)
         .init();
 

@@ -19,6 +19,7 @@ where
 #[test]
 fn test_generic() {
     env_logger::Builder::from_default_env()
+        .default_format_timestamp(false)
         .default_format_module_path(false)
         .init();
 
