@@ -1,5 +1,3 @@
-// This case currently fails when using quote_spanned!.
-
 #![feature(use_extern_macros)]
 #![feature(proc_macro_path_invoc)]
 
