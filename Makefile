@@ -1,7 +1,10 @@
-all: format build examples
+all: format build examples test
 
 build:
 	cargo build
+
+test:
+	cargo test -- --nocapture
 
 format:
 	@cargo fmt --all -- --check >/dev/null || \

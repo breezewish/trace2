@@ -92,15 +92,17 @@ fn extract_printable_args<'a>(pat: &'a syn::Pat, extract_target: &mut Vec<&'a sy
     }
 }
 
+/// Build begin trace statement.
+///
+/// Output sample:
+///
+/// ```ignore
+/// trace!("{} {}::foo(arg1: {:?}, arg2: {:?})", ">".repeat(..), module_path!(), arg1, arg2);
+/// ```
 fn build_begin_trace_statement(
     fn_decl: &syn::FnDecl,
     fn_ident: &syn::Ident,
 ) -> proc_macro2::TokenStream {
-    // build statements like:
-    // ```
-    // trace!("{} {}::foo(arg1: {:?}, arg2: {:?})", ">".repeat(..), module_path!(), arg1, arg2);
-    // ```
-
     let mut args = vec![];
     for fn_arg in fn_decl.inputs.iter() {
         match fn_arg {
@@ -131,12 +133,14 @@ fn build_begin_trace_statement(
     }
 }
 
+/// Build end trace statement.
+///
+/// Output sample:
+///
+/// ```ignore
+/// trace!("{} {}::foo = {:?}", "<".repeat(..), module_path!(), __ret);
+/// ```
 fn build_end_trace_statement(fn_ident: &syn::Ident) -> proc_macro2::TokenStream {
-    // build statements like:
-    // ```
-    // trace!("{} {}::foo = {:?}", "<".repeat(..), module_path!(), __ret);
-    // ```
-
     let format = format!("{{}} {{}}::{} = {{:?}}", fn_ident);
 
     quote! {
@@ -144,34 +148,54 @@ fn build_end_trace_statement(fn_ident: &syn::Ident) -> proc_macro2::TokenStream 
     }
 }
 
+/// Build the return type of the inner closure.
+///
+/// We should provide type as much as possible to eliminate type inference failure.
+fn build_return_type(fn_decl: &syn::FnDecl) -> proc_macro2::TokenStream {
+    let ret_type = match &fn_decl.output {
+        syn::ReturnType::Default => None,
+        syn::ReturnType::Type(_, ref ret_type) => match **ret_type {
+            // We don't write the type if the return type is impl trait.
+            syn::Type::ImplTrait(_) => None,
+            _ => Some(ret_type),
+        },
+    };
+    match ret_type {
+        None => syn::token::Underscore::new(proc_macro2::Span::call_site()).into_token_stream(),
+        Some(t) => t.clone().into_token_stream(),
+    }
+}
+
+/// Transform and build a function block.
+///
+/// Suppose we receive:
+/// ```ignore
+/// (pub) fn foo<T>(arg1: T, arg2: foo) -> bool where T: bar {
+///     ...
+/// }
+/// ```
+///
+/// This function will transform it into:
+/// ```ignore
+/// (pub) fn foo<T>(&self, arg1: T, arg2: foo) -> bool where T: bar {
+///     trace!("{} foo(arg1: {:?}, arg2: {:?})", ">".repeat(..), arg1, arg2);
+///     let mut __inner: bool = move || {
+///         ...
+///     };
+///     let __ret = __inner();
+///     trace!("{} foo = {:?}", ">".repeat(..), __ret);
+///     __ret
+/// }
+/// ```
 fn build_block(
     decl: &syn::FnDecl,
     ident: &syn::Ident,
     block: &syn::Block,
 ) -> proc_macro2::TokenStream {
-    // We receive:
-    // ```
-    // (pub) fn foo<T>(arg1: T, arg2: foo) -> bool where T: bar {
-    //     ...
-    // }
-    // ```
-    //
-    // Transform it into:
-    // ```
-    // (pub) fn foo<T>(&self, arg1: T, arg2: foo) -> bool where T: bar {
-    //     trace!("{} foo(arg1: {:?}, arg2: {:?})", ">".repeat(..), arg1, arg2);
-    //     let mut __inner = move || {
-    //         ...
-    //     };
-    //     let __ret = __inner();
-    //     trace!("{} foo = {:?}", ">".repeat(..), __ret);
-    //     __ret
-    // }
-    // ```
-
     let span = block.span();
     let begin_trace = build_begin_trace_statement(decl, ident);
     let end_trace = build_end_trace_statement(ident);
+    let return_type = build_return_type(decl);
     quote_spanned! {span=>
         {
             use trace2;
@@ -181,7 +205,10 @@ fn build_block(
                 level.set(__level);
                 #begin_trace;
             });
-            let mut __inner = move || #block;
+            let mut __inner = move || {
+                let __inner_ret: #return_type = #block;
+                __inner_ret
+            };
             let __ret = __inner();
             trace2::FUNC_CALL_LEVEL.with(|level| {
                 let mut __level = level.get();
