@@ -42,7 +42,9 @@ fn fold(input: TokenStream) -> proc_macro2::TokenStream {
 
 fn extract_printable_args<'a>(pat: &'a syn::Pat, extract_target: &mut Vec<&'a syn::Ident>) {
     match pat {
-        syn::Pat::Wild(_) |
+        syn::Pat::Wild(_) => {
+            // ignore args without a name
+        },
         syn::Pat::Path(_) |
         syn::Pat::Box(_) |
         syn::Pat::Ref(_) |
@@ -50,7 +52,7 @@ fn extract_printable_args<'a>(pat: &'a syn::Pat, extract_target: &mut Vec<&'a sy
         syn::Pat::Range(_) |
         syn::Pat::Verbatim(_) |
         syn::Pat::Macro(_) => {
-            panic!("Unexpected argument pattern")
+            panic!("Unexpected argument pattern: {:?}", pat)
         },
         syn::Pat::Ident(ref ident) => {
             if ident.ident.to_string() != "self" {
