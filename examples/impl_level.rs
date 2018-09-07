@@ -1,15 +1,14 @@
 #![feature(use_extern_macros)]
+#![feature(proc_macro_path_invoc)]
 
 extern crate trace2;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
 
-use trace2::trace2;
-
 struct Foo;
 
-#[trace2]
+#[trace2::trace2]
 impl Foo {
     fn foo(b: i32) -> i32 {
         b

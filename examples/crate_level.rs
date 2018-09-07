@@ -1,14 +1,13 @@
 #![feature(proc_macro_mod)]
+#![feature(proc_macro_path_invoc)]
 
 extern crate trace2;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
 
-use trace2::trace2;
-
 mod implementation {
-    #![trace2]
+    #[::trace2::trace2]
 
     pub fn foo(a: i32, b: i32) {
         println!("I'm in foo!");
