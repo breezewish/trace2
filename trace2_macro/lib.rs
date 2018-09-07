@@ -179,8 +179,12 @@ fn build_return_type(fn_decl: &syn::FnDecl) -> proc_macro2::TokenStream {
 /// ```ignore
 /// (pub) fn foo<T>(&self, arg1: T, arg2: foo) -> bool where T: bar {
 ///     trace!("{} foo(arg1: {:?}, arg2: {:?})", ">".repeat(..), arg1, arg2);
-///     let mut __inner: bool = move || {
-///         ...
+///     let mut __inner = move || {
+///         let __inner_ret: bool = {
+///             ...
+///         };
+///         #[allow(unreachable_code)]
+///         __inner_ret
 ///     };
 ///     let __ret = __inner();
 ///     trace!("{} foo = {:?}", ">".repeat(..), __ret);
@@ -206,7 +210,11 @@ fn build_block(
                 #begin_trace;
             });
             let mut __inner = move || {
+                // Explicitly give types, so that Box<..> can be correctly inferred.
                 let __inner_ret: #return_type = #block;
+
+                #[allow(unreachable_code)]
+                // This line might be unreachable, mute the warning. See unreachable test.
                 __inner_ret
             };
             let __ret = __inner();
