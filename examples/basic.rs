@@ -25,7 +25,7 @@ pub fn bar((a, b): (i32, i32)) -> i32 {
 #[::trace2::trace2]
 pub fn boz<T>(arg1: T, arg2: T) -> impl ::std::fmt::Display
 where
-    T: PartialEq + ::std::fmt::Debug
+    T: PartialEq + ::std::fmt::Debug,
 {
     println!("I'm in boz!");
     println!("arg1 == arg2 is {}", arg1 == arg2);

@@ -1,4 +1,4 @@
-#![recursion_limit="128"]
+#![recursion_limit = "128"]
 
 extern crate proc_macro;
 extern crate proc_macro2;
@@ -8,9 +8,9 @@ extern crate quote;
 
 use proc_macro::TokenStream;
 
-use syn::spanned::Spanned;
-use syn::fold::Fold;
 use quote::ToTokens;
+use syn::fold::Fold;
+use syn::spanned::Spanned;
 
 #[proc_macro_attribute]
 pub fn trace2(_args: TokenStream, input: TokenStream) -> TokenStream {
@@ -22,19 +22,19 @@ fn fold(input: TokenStream) -> proc_macro2::TokenStream {
     // Try to parse as mod {}
     let body: Result<syn::ItemMod, _> = syn::parse(input.clone());
     if let Ok(body) = body {
-        return folder.fold_item_mod(body).into_token_stream()
+        return folder.fold_item_mod(body).into_token_stream();
     }
 
     // Try to parse as fn()
     let body: Result<syn::ItemFn, _> = syn::parse(input.clone());
     if let Ok(body) = body {
-        return folder.fold_item_fn(body).into_token_stream()
+        return folder.fold_item_fn(body).into_token_stream();
     }
 
     // Try to parse as impl {}
     let body: Result<syn::ItemImpl, _> = syn::parse(input.clone());
     if let Ok(body) = body {
-        return folder.fold_item_impl(body).into_token_stream()
+        return folder.fold_item_impl(body).into_token_stream();
     }
 
     panic!("Invalid attribute position, only supports function, impl and mod.");
@@ -44,16 +44,14 @@ fn extract_printable_args<'a>(pat: &'a syn::Pat, extract_target: &mut Vec<&'a sy
     match pat {
         syn::Pat::Wild(_) => {
             // ignore args without a name
-        },
-        syn::Pat::Path(_) |
-        syn::Pat::Box(_) |
-        syn::Pat::Ref(_) |
-        syn::Pat::Lit(_) |
-        syn::Pat::Range(_) |
-        syn::Pat::Verbatim(_) |
-        syn::Pat::Macro(_) => {
-            panic!("Unexpected argument pattern: {:?}", pat)
-        },
+        }
+        syn::Pat::Path(_)
+        | syn::Pat::Box(_)
+        | syn::Pat::Ref(_)
+        | syn::Pat::Lit(_)
+        | syn::Pat::Range(_)
+        | syn::Pat::Verbatim(_)
+        | syn::Pat::Macro(_) => panic!("Unexpected argument pattern: {:?}", pat),
         syn::Pat::Ident(ref ident) => {
             if ident.ident.to_string() != "self" {
                 extract_target.push(&ident.ident);
@@ -94,7 +92,10 @@ fn extract_printable_args<'a>(pat: &'a syn::Pat, extract_target: &mut Vec<&'a sy
     }
 }
 
-fn build_begin_trace_statement(fn_decl: &syn::FnDecl, fn_ident: &syn::Ident) -> proc_macro2::TokenStream {
+fn build_begin_trace_statement(
+    fn_decl: &syn::FnDecl,
+    fn_ident: &syn::Ident,
+) -> proc_macro2::TokenStream {
     // build statements like:
     // ```
     // trace!("{} {}::foo(arg1: {:?}, arg2: {:?})", ">".repeat(..), module_path!(), arg1, arg2);
@@ -105,16 +106,16 @@ fn build_begin_trace_statement(fn_decl: &syn::FnDecl, fn_ident: &syn::Ident) -> 
         match fn_arg {
             syn::FnArg::SelfRef(_) | syn::FnArg::SelfValue(_) => {
                 // ignore self arg
-            },
+            }
             syn::FnArg::Captured(ref arg) => {
                 extract_printable_args(&arg.pat, &mut args);
-            },
+            }
             syn::FnArg::Inferred(ref arg_pat) => {
                 extract_printable_args(arg_pat, &mut args);
-            },
+            }
             syn::FnArg::Ignored(_) => {
                 // ignore ignored arg
-            },
+            }
         }
     }
 
@@ -143,7 +144,11 @@ fn build_end_trace_statement(fn_ident: &syn::Ident) -> proc_macro2::TokenStream 
     }
 }
 
-fn build_block(decl: &syn::FnDecl, ident: &syn::Ident, block: &syn::Block) -> proc_macro2::TokenStream {
+fn build_block(
+    decl: &syn::FnDecl,
+    ident: &syn::Ident,
+    block: &syn::Block,
+) -> proc_macro2::TokenStream {
     // We receive:
     // ```
     // (pub) fn foo<T>(arg1: T, arg2: foo) -> bool where T: bar {
