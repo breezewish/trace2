@@ -7,17 +7,16 @@ extern crate syn;
 extern crate quote;
 
 use proc_macro::TokenStream;
-
+use proc_macro2::TokenStream as TokenStream2;
 use quote::ToTokens;
 use syn::fold::Fold;
-use syn::spanned::Spanned;
 
 #[proc_macro_attribute]
 pub fn trace2(_args: TokenStream, input: TokenStream) -> TokenStream {
     fold(input).into()
 }
 
-fn fold(input: TokenStream) -> proc_macro2::TokenStream {
+fn fold(input: TokenStream) -> TokenStream2 {
     let mut folder = Folder;
     // Try to parse as mod {}
     let body: Result<syn::ItemMod, _> = syn::parse(input.clone());
@@ -99,10 +98,7 @@ fn extract_printable_args<'a>(pat: &'a syn::Pat, extract_target: &mut Vec<&'a sy
 /// ```ignore
 /// trace!("{} {}::foo(arg1: {:?}, arg2: {:?})", ">".repeat(..), module_path!(), arg1, arg2);
 /// ```
-fn build_begin_trace_statement(
-    fn_decl: &syn::FnDecl,
-    fn_ident: &syn::Ident,
-) -> proc_macro2::TokenStream {
+fn build_begin_trace_statement(fn_decl: &syn::FnDecl, fn_ident: &syn::Ident) -> TokenStream2 {
     let mut args = vec![];
     for fn_arg in fn_decl.inputs.iter() {
         match fn_arg {
@@ -126,6 +122,7 @@ fn build_begin_trace_statement(
         .map(|arg_ident| format!("{}: {{:?}}", arg_ident))
         .collect::<Vec<_>>()
         .join(", ");
+
     let format = format!("{{}} {{}}::{}({})", fn_ident, format_args);
 
     quote! {
@@ -140,7 +137,7 @@ fn build_begin_trace_statement(
 /// ```ignore
 /// trace!("{} {}::foo = {:?}", "<".repeat(..), module_path!(), __ret);
 /// ```
-fn build_end_trace_statement(fn_ident: &syn::Ident) -> proc_macro2::TokenStream {
+fn build_end_trace_statement(fn_ident: &syn::Ident) -> TokenStream2 {
     let format = format!("{{}} {{}}::{} = {{:?}}", fn_ident);
 
     quote! {
@@ -151,7 +148,7 @@ fn build_end_trace_statement(fn_ident: &syn::Ident) -> proc_macro2::TokenStream 
 /// Build the return type of the inner closure.
 ///
 /// We should provide type as much as possible to eliminate type inference failure.
-fn build_return_type(fn_decl: &syn::FnDecl) -> proc_macro2::TokenStream {
+fn build_return_type(fn_decl: &syn::FnDecl) -> TokenStream2 {
     let ret_type = match &fn_decl.output {
         syn::ReturnType::Default => None,
         syn::ReturnType::Type(_, ref ret_type) => match **ret_type {
@@ -191,16 +188,11 @@ fn build_return_type(fn_decl: &syn::FnDecl) -> proc_macro2::TokenStream {
 ///     __ret
 /// }
 /// ```
-fn build_block(
-    decl: &syn::FnDecl,
-    ident: &syn::Ident,
-    block: &syn::Block,
-) -> proc_macro2::TokenStream {
-    let span = block.span();
+fn build_block(decl: &syn::FnDecl, ident: &syn::Ident, block: &syn::Block) -> TokenStream2 {
     let begin_trace = build_begin_trace_statement(decl, ident);
     let end_trace = build_end_trace_statement(ident);
     let return_type = build_return_type(decl);
-    quote_spanned! {span=>
+    quote! {
         {
             use trace2;
             trace2::FUNC_CALL_LEVEL.with(|level| {
