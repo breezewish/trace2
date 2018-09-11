@@ -65,7 +65,7 @@ impl Codegen {
     /// ```ignore
     /// trace!("{} {}::foo(arg1: {:?}, arg2: {:?})", ">".repeat(..), module_path!(), arg1, arg2);
     /// ```
-    fn build_begin_trace_statement(fn_decl: &syn::FnDecl, fn_ident: &syn::Ident) -> TokenStream2 {
+    fn build_begin_trace_statement(fn_decl: &syn::FnDecl, fn_name: &str) -> TokenStream2 {
         let mut args = vec![];
         for fn_arg in fn_decl.inputs.iter() {
             match fn_arg {
@@ -90,7 +90,7 @@ impl Codegen {
             .collect::<Vec<_>>()
             .join(", ");
 
-        let format = format!("{{}} {{}}::{}({})", fn_ident, format_args);
+        let format = format!("{{}} {{}}::{}({})", fn_name, format_args);
 
         quote! {
             trace!(#format, ">".repeat(__level * 4), module_path!(), #(#args),*)
@@ -104,8 +104,8 @@ impl Codegen {
     /// ```ignore
     /// trace!("{} {}::foo = {:?}", "<".repeat(..), module_path!(), __ret);
     /// ```
-    fn build_end_trace_statement(fn_ident: &syn::Ident) -> TokenStream2 {
-        let format = format!("{{}} {{}}::{} = {{:?}}", fn_ident);
+    fn build_end_trace_statement(fn_name: &str) -> TokenStream2 {
+        let format = format!("{{}} {{}}::{} = {{:?}}", fn_name);
 
         quote! {
             trace!(#format, "<".repeat(__level * 4), module_path!(), __ret)
@@ -155,9 +155,19 @@ impl Codegen {
     ///     __ret
     /// }
     /// ```
-    pub fn build_block(decl: &syn::FnDecl, ident: &syn::Ident, block: &syn::Block) -> TokenStream2 {
-        let begin_trace = Self::build_begin_trace_statement(decl, ident);
-        let end_trace = Self::build_end_trace_statement(ident);
+    pub fn build_block(decl: &syn::FnDecl, ident: &syn::Ident, impl_type: Option<&syn::Type>, block: &syn::Block) -> TokenStream2 {
+        let fn_name = {
+            let impl_type_str = match impl_type {
+                None => "".to_owned(),
+                Some(impl_type) => {
+                    format!("{}::", quote!(#impl_type))
+                }
+            };
+            format!("{}{}", impl_type_str, ident)
+        };
+
+        let begin_trace = Self::build_begin_trace_statement(decl, &fn_name);
+        let end_trace = Self::build_end_trace_statement(&fn_name);
         let return_type = Self::build_return_type(decl);
         quote! {
             {

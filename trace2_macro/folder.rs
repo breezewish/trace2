@@ -20,7 +20,23 @@ enum FoldScope {
 
 /// The AST visitor and modifier.
 #[derive(Debug)]
-pub struct Folder(FoldScope);
+pub struct Folder {
+    /// The target scope when this folder is constructed.
+    scope: FoldScope,
+
+    /// The current impl block's type. It is set when entering a `impl` block,
+    /// and unset when existing.
+    current_impl: Option<syn::Type>,
+}
+
+impl Folder {
+    fn new(scope: FoldScope) -> Self {
+        Self {
+            scope,
+            current_impl: None,
+        }
+    }
+}
 
 impl Folder {
     pub fn fold(args: TokenStream2, input: TokenStream2) -> TokenStream2 {
@@ -29,24 +45,26 @@ impl Folder {
             return input;
         }
 
-        // Try to parse as mod {}
+        // Try to parse as `mod {}`
         let body = syn::parse2::<syn::ItemMod>(input.clone());
         if let Ok(body) = body {
-            return Folder(FoldScope::Mod)
+            return Folder::new(FoldScope::Mod)
                 .fold_item_mod(body)
                 .into_token_stream();
         }
 
-        // Try to parse as fn()
+        // Try to parse as `fn()`
         let body = syn::parse2::<syn::ItemFn>(input.clone());
         if let Ok(body) = body {
-            return Folder(FoldScope::Fn).fold_item_fn(body).into_token_stream();
+            return Folder::new(FoldScope::Fn)
+                .fold_item_fn(body)
+                .into_token_stream();
         }
 
-        // Try to parse as impl {}
+        // Try to parse as `impl {}`
         let body = syn::parse2::<syn::ItemImpl>(input.clone());
         if let Ok(body) = body {
-            return Folder(FoldScope::Impl)
+            return Folder::new(FoldScope::Impl)
                 .fold_item_impl(body)
                 .into_token_stream();
         }
@@ -80,11 +98,11 @@ impl Fold for Folder {
         let some_config = Self::extract_macro_config(&i.attrs);
         if let Some(_) = some_config {
             // we are folding from a larger scope, ignore this
-            if self.0 > FoldScope::Fn {
+            if self.scope > FoldScope::Fn {
                 return i;
             }
         }
-        let new_block_tokens = Codegen::build_block(&i.sig.decl, &i.sig.ident, &i.block);
+        let new_block_tokens = Codegen::build_block(&i.sig.decl, &i.sig.ident, self.current_impl.as_ref(), &i.block);
         let new_block = syn::parse2(new_block_tokens).unwrap();
         i.block = new_block;
         i
@@ -94,27 +112,66 @@ impl Fold for Folder {
         let some_config = Self::extract_macro_config(&i.attrs);
         if let Some(_) = some_config {
             // we are folding from a larger scope, ignore this
-            if self.0 > FoldScope::Fn {
+            if self.scope > FoldScope::Fn {
                 return i;
             }
         }
-        let new_block_tokens = Codegen::build_block(&*i.decl, &i.ident, &*i.block);
+        let new_block_tokens = Codegen::build_block(&*i.decl, &i.ident, None, &*i.block);
         let new_block = syn::parse2(new_block_tokens).unwrap();
         i.block = Box::new(new_block);
         i
     }
 
     fn fold_item_impl(&mut self, i: syn::ItemImpl) -> syn::ItemImpl {
+        // Maybe called from either:
+        // - Children traversal from a mod scope folder
+        // - Root traversal of a impl scope folder
+        //
+        // For both cases, we record this impl block's type, so that when we further traverse
+        // children `fn()`, we will know where it comes from.
+        //
+        // However, children `fn()` might be ignored and not traversed in this folder when it has
+        // a `#[trace]` attribute. In this case, we attach meta data to that `#[trace]` attribute.
+        // This will be done in `fold_impl_item_method`.
+
+        // TODO: Rewrite children `fn()`'s attribute if it is going be ignored.
+
         let some_config = Self::extract_macro_config(&i.attrs);
         if let Some(_) = some_config {
             // we are folding from a larger scope, ignore this
-            if self.0 > FoldScope::Impl {
+            if self.scope > FoldScope::Impl {
                 return i;
             }
         }
-        syn::fold::fold_item_impl(self, i)
+
+        // Extract current impl's type before traversing children. If its path has multiple parts,
+        // only last part is preserved.
+        self.current_impl = Some(TypeFolder.fold_type(*(i.self_ty).clone()));
+
+        let ret = syn::fold::fold_item_impl(self, i);
+
+        // Clear current impl's type when children traversal is completed.
+        self.current_impl = None;
+        ret
     }
 }
+
+/// Implements `syn::fold::Fold`. It changes a `syn::Type` by only preserving the last part of a
+/// `syn::TypePath`. In this way, we will get a cleaner and simpler type to be printed out.
+/// It should be invoked by `fold_type`.
+struct TypeFolder;
+
+impl Fold for TypeFolder {
+    fn fold_path(&mut self, mut i: syn::Path) -> syn::Path {
+        // When we meet a path, only preserve the last part.
+        let segments_len = i.segments.len();
+        if segments_len > 1 {
+            i.segments = i.segments.into_iter().skip(segments_len - 1).collect();
+        }
+        i
+    }
+}
+
 
 #[derive(Debug)]
 struct AttrTTS(Config);
